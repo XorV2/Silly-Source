@@ -1,0 +1,12 @@
+{
+	"root": {
+		"password":"root",
+		"admin":true,
+		"concurrents":9999,
+		"timelimit":9999,
+		"cooldown":30,
+		"logged_in":false,
+		"vip":true,
+		"expiry":"2200-12-12"
+	}
+}

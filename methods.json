@@ -1,0 +1,7 @@
+{
+	"dns": {
+		"funnels": ["https://example.com/api&key=somekeyhere&host=(HOST)&port=(PORT)&time=(TIME)&method=somemethod", "https://google.com/api&key=somekeyhere&host=(HOST)&port=(PORT)&time=(TIME)&method=somemethod"],
+		"private_method": false,
+		"vip_only": true
+	}
+}

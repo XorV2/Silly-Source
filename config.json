@@ -1,0 +1,16 @@
+{
+	"main": {
+		"server_port": 1337,
+		"max_global_slots": 5
+	},
+
+	"logging": {
+		"enabled": false,
+		"discord": {
+			"enabled":false,
+			"attack_logs": "webhook_goes_here",
+			"blacklisted_logs": "webhook_goes_here",
+			"dstat_logs": "webhook_goes_here"
+		}
+	}
+}
