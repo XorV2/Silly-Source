@@ -7,6 +7,7 @@ Use ubuntu 22.04 for setup.sh to work.
 for auto setup do:
 
 chmod 777 setup.sh
+
 ./setup.sh
 
 it should auto install all packages.
