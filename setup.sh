@@ -21,3 +21,5 @@ iptables -t mangle -I PREROUTING -p tcp --dport 1337 -j ACCEPT
 ufw enable
 ufw allow 1337/tcp
 ufw reload
+
+echo "Done."
